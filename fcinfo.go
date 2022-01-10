@@ -19,6 +19,7 @@ const INTEROP_EXPIRED_HOURS = 24
 var (
 	NORUNPARAM = fmt.Errorf("No RunParamters.xml")
 	VOYAGER    = "Voyager"
+	NOVASEQ    = "NovaSeq"
 	FIRE_FLY   = "Firefly"
 )
 
@@ -203,13 +204,32 @@ func ParseRunParamsXMLFireflyProto2(runParamString string) (runParamPre *RunPara
 	return
 }
 
+func parseRunParamVoyagerV2(runParamsPre *RunParamsVoyager, body []byte) (runParam *RunParams, err error) {
+	ret, err := parseRunParamVoyager(runParamsPre)
+	if err != nil {
+		return nil, err
+	}
+	runParamNovaSeq := new(NovaSeqRunParameters)
+
+	if err := xml.Unmarshal(body, runParamNovaSeq); err != nil {
+		return nil, err
+	}
+
+	ret.ApplicationName = runParamNovaSeq.Application
+	ret.ApplicationVersion = runParamNovaSeq.ApplicationVersion
+	ret.RTAVersion = runParamNovaSeq.RtaVersion
+	ret.RecipePath = runParamNovaSeq.RecipeFilePath
+
+	return ret, nil
+}
+
 func parseRunParamVoyager(runParamsPre *RunParamsVoyager) (runParam *RunParams, err error) {
 	runParam = new(RunParams)
 
 	runParam.ApplicationName = runParamsPre.Application
 
 	runParam.ApplicationVersion = runParamsPre.ApplicationVersion
-	runParam.InstrumentType = VOYAGER
+	runParam.InstrumentType = NOVASEQ
 	runParam.Chemistry = runParamsPre.RecipeFilePath
 	runParam.FPGVersion = `undefined`
 	runParam.RTAVersion = `undefined`
@@ -370,7 +390,7 @@ func ParseRunParamsXML(runParamString string) (*RunParams, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	fmt.Println(runParamPre)
 	//	ApplicationName := runParamPre.SetUp.ApplicationName
 	ApplicationName := runParamPre.Setup.ApplicationName
 
@@ -432,12 +452,12 @@ func ParseRunParamsXML(runParamString string) (*RunParams, error) {
 	if err == nil {
 		matched, _ = regexp.MatchString("(?i)Voyager", runParamPreVoyager.Application)
 		if matched {
-			return parseRunParamVoyager(runParamPreVoyager)
+			return parseRunParamVoyagerV2(runParamPreVoyager, []byte(runParamString))
 		}
 		//NovaSeq
 		matched, _ = regexp.MatchString("(?i)NovaSeq", runParamPreVoyager.Application)
 		if matched {
-			return parseRunParamVoyager(runParamPreVoyager)
+			return parseRunParamVoyagerV2(runParamPreVoyager, []byte(runParamString))
 		}
 		//		fmt.Printf("%+v\n", runParamPreVoyager)
 	}
